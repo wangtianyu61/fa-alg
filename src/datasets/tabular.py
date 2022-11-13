@@ -20,6 +20,7 @@ from src.datasets import TGT, Dataset, DATASET_ROOT, DEFAULT_TRAIN_FRAC, \
     DatasetConfig, SENS_RACE, SENS_SEX, SENS_AGE
 from src.torchutils import pd_to_torch_float
 
+ADULT = 'adult'
 GERMAN = 'german'
 WINE = "wine"
 

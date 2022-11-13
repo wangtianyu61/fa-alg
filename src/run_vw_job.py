@@ -14,22 +14,6 @@ data_choice = 'loan'
 #where we store the vw.exe
 VW = '../../vw'
 
-#the location of datasets and results
-if data_choice == 'openml':
-    VW_DS_DIR = '../../datasets/vwdatasets/'
-    DIR_PATTERN = '../../res/cbresults_{}/'
-elif data_choice == 'hotel':
-    VW_DS_DIR = '../../datasets/pricing/MSOM_Hotel/'
-    DIR_PATTERN = '../../res/cbresults_hotel_{}/'
-elif data_choice == 'ms':
-    VW_DS_DIR = '../../datasets/MSLR-WEB10K/'
-    DIR_PATTERN = '../../res/cbresults_ms_{}/'
-elif data_choice == 'yahoo':
-    VW_DS_DIR = '../../datasets/yahoo_dataset/'
-    DIR_PATTERN = '../../res/cbresults_yahoo_{}/'
-elif data_choice == 'loan':
-    VW_DS_DIR = '../../datasets/OnlineAutoLoan/'
-    DIR_PATTERN = '../../res/cbresults_loan_{}/'
     
 rgx = re.compile('^average loss = (.*)$', flags=re.M)
 
