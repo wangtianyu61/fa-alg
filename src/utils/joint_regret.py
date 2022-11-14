@@ -1,15 +1,15 @@
 #concrete regret analysis
 #two types of illustrating regret in each step
-from FALCON import FALCON, FALCON_ldf, FALCON_price
-from split_gz_csv import ds_files_csv, ds_files
-from split import sample_custom_pmf
+from src.models.cb.FALCON import FALCON, FALCON_ldf, FALCON_price
+#from split_gz_csv import ds_files_csv, ds_files
+#from split import sample_custom_pmf
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
-from glob_param import *
-from run_vw_job import process
-from split import *
+#from glob_param import *
+from src.run_vw_job import process
+#from split import *
 import re
 rgx = re.compile('^average loss = (.*)$', flags=re.M)
 
@@ -35,7 +35,8 @@ def output_extraction(output):
     output_loss_epoch = []
     for index in range(len(output_all)):
         #print(output_all[index][0])
-        if len(output_all[index].split(' ')) in [36, 38, 40, 42, 44]:
+        ## (REMARK): current split criterion 
+        if len(output_all[index].split(' ')) >= 50:
             output_loss_epoch.append(float(output_all[index].split(' ')[0]))
     
     cdf_loss = np.multiply(output_loss_epoch, list(range(1, len(output_loss_epoch) + 1)))

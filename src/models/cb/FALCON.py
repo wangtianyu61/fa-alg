@@ -8,8 +8,7 @@ import scipy.sparse as sp
 import time
 import math
 from sklearn import linear_model, ensemble
-from base_cb import base_cb, base_cb_ldf
-from CSLR import *
+from src.models.cb.base_cb import base_cb, base_cb_ldf
 from sklearn.preprocessing import MinMaxScaler
 
 VW_DS_DIR = '../datasets/vwdatasets/'
@@ -100,10 +99,10 @@ class FALCON(base_cb):
             
             if self.funclass == 'linear':
                 #we first implement the linear model without constraints
-                if self.fun_constr == True:
-                    model = ConstrainedLinearRegression()
-                else:
-                    model = linear_model.LinearRegression()
+                # if self.fun_constr == True:
+                #     model = ConstrainedLinearRegression()
+                # else:
+                model = linear_model.LinearRegression()
             elif self.funclass == 'ridge':
                 model = linear_model.Ridge(alpha = 1)
             elif self.funclass == 'GBR':
@@ -202,7 +201,7 @@ class FALCON_ldf(base_cb_ldf):
         return pv_loss/self.sample_number
     
     
-#use for learning_to_rank datasets.
+#use for price datasets.
 class FALCON_price(base_cb_ldf):
     def __init__(self, csvpath, gamma_param, feed_choice = 0, doc_num = 10, funclass = 'linear', tau_param = 1):
         self.gamma_param = gamma_param
