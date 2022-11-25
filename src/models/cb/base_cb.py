@@ -17,11 +17,29 @@ def ds_files():
     return sorted(glob.glob(os.path.join(VW_DS_DIR, '*.csv')))
 
 class base_cb:
-    def __init__(self, csvpath, dataset_class, funclass):
+    def __init__(self, csvpath, dataset_class, funclass, group_name = None):
         #csvpath
         df = pd.read_csv(csvpath)
         df_feature_columns = list(set(df.columns) - {'class'} - {'Unnamed: 0'})
-        
+        if group_name != None:
+            #we assert that group to be a 'list' structure
+            assert (type(group_name) == list)
+            #add the group sequence to analyze fairness issues in each group
+            group_raw_feature = list(np.array(df[group_name]))
+            idx_num = 0
+            set_idx = {}
+            self.group = np.zeros(len(df))
+            for i in range(len(df)):
+                str_key = str(group_raw_feature[i][0])
+                for group in range(1, len(group_name)):
+                    str_key += ',' + str(group_raw_feature[i][1])
+                if str_key not in set_idx:
+                    set_idx[str_key] = idx_num
+                    idx_num += 1
+                self.group[i] = int(set_idx[str_key])
+            self.group = [int(j) for j in self.group]
+
+
         self.context_all = self.preprocessing(df[df_feature_columns])
         
         self.context_dim = len(self.context_all)

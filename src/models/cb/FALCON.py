@@ -19,13 +19,14 @@ def ds_files(DS_DIR):
     return sorted(glob.glob(os.path.join(DS_DIR, '*.csv')))
 
 class FALCON(base_cb):
-    def __init__(self, csvpath, gamma_param, feed_choice = 0, funclass = 'linear', tau_param = 1, fun_constr = False, dataset_class = 'oml'):
+    def __init__(self, csvpath, gamma_param, group = None, 
+                feed_choice = 0, funclass = 'linear', tau_param = 1, fun_constr = False, dataset_class = 'oml'):
         
         self.tau_param = tau_param
         self.gamma_param = gamma_param
         self.feed_choice = feed_choice #feed_choice = 1 means feed all data before this oracle
         self.fun_constr = fun_constr
-        base_cb.__init__(self, csvpath, dataset_class, funclass)
+        base_cb.__init__(self, csvpath, dataset_class, funclass, group)
     
     #parameter for sampling
     def gamma_func(self, epoch):
@@ -57,7 +58,7 @@ class FALCON(base_cb):
                     pmf = list(np.ones(self.action_number))
                     index, prob = self.sample_custom_pmf(pmf)
                     pv_loss += self.loss_encoding(index, self.action_all[t - 1])
-                    self.loss_all[t - 1] = pv_loss
+                    self.loss_all[t - 1] = self.loss_encoding(index, self.action_all[t - 1])
                     if t == self.sample_number:
                         return pv_loss/t
                     #print(t - 1)
@@ -78,7 +79,7 @@ class FALCON(base_cb):
                     pmf = self.pmf_compute(self.context_all[t - 1: t], model, epoch)
                     index, prob = self.sample_custom_pmf(pmf)
                     pv_loss += self.loss_encoding(index, self.action_all[t - 1])
-                    self.loss_all[t - 1] = pv_loss
+                    self.loss_all[t - 1] = self.loss_encoding(index, self.action_all[t - 1])
                     #print(t - 1)
                     if t == self.sample_number:
                         return pv_loss/t
@@ -170,7 +171,8 @@ class FALCON_ldf(base_cb_ldf):
                     pmf = list(np.ones(self.action_number))
                     index, prob = self.sample_custom_pmf(pmf)
                     pv_loss += self.loss_encoding(index, t)
-                    self.loss_all[t - 1] = pv_loss
+                    self.loss_all[t - 1] = self.loss_encoding(index, t)
+                    #self.loss_all[t - 1] = pv_loss
                     #print(index, t)
                     if t == self.sample_number:
                         return pv_loss/t
@@ -192,7 +194,7 @@ class FALCON_ldf(base_cb_ldf):
                     pmf = self.pmf_compute(self.context_all[self.action_number*(t - 1): self.action_number*t], model, epoch)
                     index, prob = self.sample_custom_pmf(pmf)
                     pv_loss += self.loss_encoding(index, t)
-                    self.loss_all[t - 1] = pv_loss
+                    self.loss_all[t - 1] = self.loss_encoding(index, t)
                     #print(index, t)
                     if t == self.sample_number:
                         return pv_loss/t
