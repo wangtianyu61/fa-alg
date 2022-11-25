@@ -33,14 +33,27 @@ def regret_figure(loss_all, alg_name, did, did_type):
 def output_extraction(output):
     output_all = output.split('\n')
     output_loss_epoch = []
+    output_action_epoch = []
     for index in range(len(output_all)):
         #print(output_all[index][0])
         ## (REMARK): current split criterion 
         if len(output_all[index].split(' ')) >= 50:
-            output_loss_epoch.append(float(output_all[index].split(' ')[0]))
-    
+            #print(output_all[index].split(''))
+            #output_loss_epoch.append(float(output_all[index].split(' ')[0]))
+            cnt = 0
+            output_split = output_all[index].split(' ')
+            output_loss_epoch.append(float(output_split[0]))
+            for output_value in output_split:
+                if output_value != '':
+                    cnt += 1
+                    if cnt == 5:
+                        output_action_epoch.append(int(float(output_value) - 1))
+                        break
     cdf_loss = np.multiply(output_loss_epoch, list(range(1, len(output_loss_epoch) + 1)))
-    return cdf_loss
+    #from cumu to single step loss
+    pdf_loss = [round(cdf_loss[i] - cdf_loss[i - 1],1) for i in range(1, len(cdf_loss))]
+
+    return [cdf_loss[0]] + pdf_loss, output_action_epoch
 
 #list the param for the vw format for each algorithm in ranking dta
 def rank_param_vw():

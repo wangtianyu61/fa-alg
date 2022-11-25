@@ -31,8 +31,8 @@ class base_cb:
             self.group = np.zeros(len(df))
             for i in range(len(df)):
                 str_key = str(group_raw_feature[i][0])
-                for group in range(1, len(group_name)):
-                    str_key += ',' + str(group_raw_feature[i][1])
+                for group_seq in range(1, len(group_name)):
+                    str_key += ',' + str(group_raw_feature[i][group_seq])
                 if str_key not in set_idx:
                     set_idx[str_key] = idx_num
                     idx_num += 1

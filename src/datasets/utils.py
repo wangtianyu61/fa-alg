@@ -36,7 +36,13 @@ def get_dataset(config: DatasetConfig):
         return tabular.WineDataset(**asdict(config))
     elif isinstance(config, tabular.AdultDatasetConfig):
         return tabular.AdultDataset(**asdict(config))
+    elif isinstance(config, tabular.CompasDatasetConfig):
+        return tabular.CompasDataset(**asdict(config))
     elif isinstance(config, tabular.GermanDatasetConfig):
         return tabular.GermanDataset(**asdict(config))
+    elif isinstance(config, tabular.CommunitiesAndCrimeDatasetConfig):
+        return tabular.CommunitiesAndCrimeDataset(**asdict(config))
+    elif isinstance(config, tabular.BRFSSDatasetConfig):
+        return tabular.BRFSSDataset(**asdict(config))
     else:
         raise NotImplementedError

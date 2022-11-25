@@ -55,6 +55,7 @@ class offline_eval_metric_cb:
         for k in range(self.group_num):
             self.offline_data['cumu_loss_' + str(k)] = list(cumu_group_loss[k])
             self.summary_loss['cumu_loss_' + str(k)] = cumu_group_loss[k][-1]
+            self.summary_loss['avg_loss_' + str(k)] = cumu_group_loss[k][-1] / cumu_group_num[k][-1]
             self.offline_data['cumu_num_' + str(k)] = list(cumu_group_num[k])
         self.offline_data['loss_parity'] = list(loss_parity)
         self.summary_loss['loss_parity'] = loss_parity[-1]

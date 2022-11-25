@@ -16,11 +16,16 @@ from scipy.io import arff
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 import src.datasets
+from src.datasets.brfss_utils import BRFSS_FEATURES
+from src.datasets.compas_utils import preprocess_compas
 from src.datasets import TGT, Dataset, DATASET_ROOT, DEFAULT_TRAIN_FRAC, \
     DatasetConfig, SENS_RACE, SENS_SEX, SENS_AGE
 from src.torchutils import pd_to_torch_float
 
 ADULT = 'adult'
+BRFSS = 'brfss'
+CANDC = 'communities-and-crime'
+COMPAS = 'compas'
 GERMAN = 'german'
 WINE = "wine"
 
@@ -31,7 +36,7 @@ class TabularDatasetConfig(DatasetConfig):
     make_dummies: bool = True
     bootstrap: bool = False
     label_encode_categorical_cols: bool = False
-    is_regression: bool = True
+    is_regression: bool = False
     target_threshold: float = None
     random_state: int = None
     grouping_var: str = None
@@ -542,6 +547,174 @@ class AdultDataset(TabularDataset):
 
 
 @dataclass
+class BRFSSDatasetConfig(TabularDatasetConfig):
+    sens: list = field(default_factory=lambda: [SENS_RACE, SENS_SEX])
+    year: int = 2015
+
+
+class BRFSSDataset(TabularDataset):
+    """Behavioral Risk Factors Surveillance Survey Dataset.
+
+    Accessed via https://www.kaggle.com/datasets/cdc/behavioral-risk-factor-surveillance-system.
+    Raw Data: https://www.cdc.gov/brfss/annual_data/annual_data.htm
+    Data Dictionary: https://www.cdc.gov/brfss/annual_data/2015/pdf/codebook15_llcp.pdf
+    Related work: https://www.cdc.gov/pcd/issues/2019/19_0109.htm
+    """
+
+    def __init__(self, year: int, use_cache: bool = True, **kwargs):
+        del use_cache
+        self.year = year
+        super().__init__(**kwargs, name=BRFSS)
+
+    def _load(self) -> None:
+        root_dir = self.get_dataset_root_dir()
+
+        df = pd.read_csv(os.path.join(root_dir, f"{self.year}.csv"),
+                         usecols=BRFSS_FEATURES)
+        # Label
+        df["DIABETE3"].replace({2: 0, 3: 0, 4: 0}, inplace=True)
+        # Drop 1k missing/not sure, plus one missing observation
+        df = df[~(df["DIABETE3"].isin([7, 9]))].dropna(subset=["DIABETE3"])
+        df.rename(columns={"DIABETE3": TGT}, inplace=True)
+
+        # Sensitive columns
+        # Drop no preferred race/not answered/don't know/not sure
+        df = df[~(df["_PRACE1"].isin([7, 8, 77, 99]))]
+        df[SENS_RACE] = (df["_PRACE1"] == 1).astype(int)
+        df[SENS_SEX] = (df["SEX"] - 1)  # Map sex to male=0, female=1
+
+        df.drop(["_PRACE1", "SEX"], axis=1, inplace=True)
+
+        # PHYSHLTH, POORHLTH, MENTHLTH are measured in days, but need to
+        # map 88 to 0 because it means zero (i.e. zero bad health days)
+        df["PHYSHLTH"] = df["PHYSHLTH"].replace({88: 0})
+        df["MENTHLTH"] = df["MENTHLTH"].replace({88: 0})
+
+        # Drop rows where drinks per week is unknown/refused/missing;
+        # this uses a different missingness code from other variables.
+        df = df[~(df["_DRNKWEK"] == 99900)]
+
+        # Some questions are not asked for various reasons
+        # (see notes under "BLANK" for that question in data dictionary);
+        # create an indicator for these due to large fraction of missingness.
+        df["SMOKDAY2"] = df["SMOKDAY2"].fillna("NOTASKED_MISSING").astype(str)
+        df["TOLDHI2"] = df["TOLDHI2"].fillna("NOTASKED_MISSING").astype(str)
+
+        NUMERIC_COLS = ("_BMI5", "_DRNKWEK", "PHYSHLTH", "MENTHLTH", "PA1MIN_")
+        # For these categorical columns, drop respondents who were not sure,
+        # refused, or had missing responses. This is also important because
+        # sometimes those responses (dk/refuse/missing) are lumped into
+        # a single category (e.g. "_TOTINDA").
+        DROP_MISSING_REFUSED_COLS = (
+            "MEDCOST", "PHYSHLTH", "_RFHYPE5", "_CHOLCHK", "SMOKE100",
+            "SMOKDAY2", "TOLDHI2", "CVDSTRK3", "_TOTINDA", "_FRTLT1",
+            "_VEGLT1", "_RFBING5", "PA1MIN_", "INCOME2", "MARITAL", "CHECKUP1",
+            "EDUCA", "_MICHD", "_BMI5", "_BMI5CAT",
+        )
+        for c in DROP_MISSING_REFUSED_COLS:
+            start_sz = len(df)
+            if c not in NUMERIC_COLS:
+                # Apply coded values for missing/refused/idk, for categorical cols.
+                # Note that 88 is sometimes used for for these, but 8 is NOT
+                # and constitutes a valid value in the above columns.
+                df = df[~(df[c].isin([7, 9, 77, 88, 99]))]
+            # Drop actual missing values, for all column dtypes
+            df.dropna(subset=[c], inplace=True)
+            # print("filtered {} remaining rows ({:.4f}%) using column {}".format(
+            #     start_sz - len(df), 100 * (start_sz - len(df))/start_sz, c))
+
+        for c in df.columns:
+            if c not in NUMERIC_COLS and c not in self.sens and c != TGT:
+                # First cast to string, since some columns may contain mixed
+                # types due to fillna step.
+                df[c] = df[c].astype("category")
+
+        self._postprocess_data(df)
+
+@dataclass
+class CommunitiesAndCrimeDatasetConfig(TabularDatasetConfig):
+    target_threshold: float = 0.08
+    sens: list = field(default_factory=lambda: [SENS_RACE, "income_level"])
+
+
+class CommunitiesAndCrimeDataset(TabularDataset):
+    def __init__(self, **kwargs):
+        del kwargs["use_cache"]
+        super().__init__(**kwargs, name=CANDC)
+
+    def _load(self, scale=True):
+        """Loads the communities and crime dataset, and perform some preprocessing.
+
+        This mimics the preprocessing of [Khani et al.], with addition of a
+        sensitive attribute for income level.
+
+        The data files can be accessed at
+        https://worksheets.codalab.org/bundles/0xa8201e470d404a7aa03746291161d9e1
+        """
+        root_dir = self.get_dataset_root_dir()
+        attrib = pd.read_csv(os.path.join(root_dir, 'attributes.csv'),
+                             delim_whitespace=True)
+        data = pd.read_csv(os.path.join(root_dir, 'communities.data'),
+                           names=attrib['attributes'])
+        # remove non predicitive features
+        for c in ['state', 'county', 'community', 'communityname', 'fold']:
+            if c != self.domain_split_colname:
+                data.drop(columns=c, axis=1, inplace=True)
+
+        data = data.replace('?', np.nan).dropna(axis=1)
+        data[SENS_RACE] = data['racePctWhite'].apply(
+            lambda x: 1 if x >= 0.85 else 0)
+        income_thresh = data["medIncome"].median()
+        data["income_level"] = data["medIncome"].apply(
+            lambda x: 1 if x > income_thresh else 0)
+        data = data.drop(columns=['racePctAsian', 'racePctHisp',
+                                  'racepctblack', 'whitePerCap',
+                                  'blackPerCap', 'indianPerCap',
+                                  'AsianPerCap',  # 'OtherPerCap',
+                                  'HispPerCap',
+                                  'racePctWhite', 'medIncome'
+                                  ], axis=1).rename(
+            columns={'ViolentCrimesPerPop': TGT})
+        if not self.is_regression:
+            # The label of a community is 1 if that community is among the
+            # 70% of communities with the highest crime rate and 0 otherwise,
+            # following Khani et al. and Kearns et al. 2018.
+            data[TGT] = (data[TGT] >= self.target_threshold).astype(int)
+        self._postprocess_data(data)
+        return
+
+@dataclass
+class CompasDatasetConfig(TabularDatasetConfig):
+    sens: list = field(default_factory=lambda: [SENS_SEX, SENS_RACE])
+    name: str = COMPAS
+
+
+class CompasDataset(TabularDataset):
+    def __init__(self, **kwargs):
+        del kwargs['use_cache']
+        super().__init__(**kwargs)
+
+    def _load(self) -> None:
+        assert not self.is_regression, "COMPAS is a binary task."
+        root_dir = self.get_dataset_root_dir()
+        df = pd.read_csv(os.path.join(root_dir, "compas-scores-two-years.csv"))
+        df = preprocess_compas(df)
+
+        # privileged group (white) is coded as 1. Note that 'male' is also
+        # coded as 1, by default (see
+        # https://github.com/propublica/compas-analysis/blob/master/Compas%20Analysis.ipynb)
+
+        df[SENS_RACE] = (df['race'] == 0).astype(int)
+        target_variable = 'is_recid'
+        df.rename(columns={target_variable: TGT}, inplace=True)
+
+        # Convert the binary feature to categorical, so it is not normalized
+        df['c_charge_degree'] = df['c_charge_degree'].astype(str)
+
+        self._postprocess_data(df)
+
+
+@dataclass
 class GermanDatasetConfig(TabularDatasetConfig):
     grouping_var: str = None
     name: str = GERMAN
@@ -658,5 +831,11 @@ def get_dataset_config(dataset, **kwargs):
         return AdultDatasetConfig(**kwargs)
     elif dataset == src.datasets.tabular.GERMAN:
         return GermanDatasetConfig(**kwargs)
+    elif dataset == src.datasets.tabular.CANDC:
+        return CommunitiesAndCrimeDatasetConfig(**kwargs)
+    elif dataset == 'compas':
+        return CompasDatasetConfig(**kwargs)
+    elif dataset == src.datasets.tabular.BRFSS:
+        return BRFSSDatasetConfig(**kwargs)
     else:
         raise NotImplementedError

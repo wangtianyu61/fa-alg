@@ -3,11 +3,12 @@ import src.datasets.utils
 from src.datasets.tabular import get_dataset_config
 import vowpalwabbit
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-def get_dataset(dataset="adult", root="./3_fairness/fa-alg/downloads"):
-    ## get data from csv file
+def get_dataset(dataset="adult", root="src/datasets"):
+     ## get data from csv file
     dataset_kwargs = {'root_dir': root}
     dataset_config = get_dataset_config(dataset, **dataset_kwargs)
     dset = src.datasets.utils.get_dataset(dataset_config)
@@ -87,10 +88,11 @@ def plot_ctr(reward):
 def main():
     dset = get_dataset()
 
-    vw = vowpalwabbit.Workspace("--cb_explore_adf -q UA --epsilon 0.2")
+    vw = vowpalwabbit.Workspace("--cb_explore 2 --bag 4")
 
     reward, records = train(dset, vw)
     plot_ctr(reward)
+    return records
 
 
 
