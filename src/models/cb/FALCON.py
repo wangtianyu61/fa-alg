@@ -20,7 +20,7 @@ def ds_files(DS_DIR):
 
 class FALCON(base_cb):
     def __init__(self, csvpath, gamma_param, group = None, 
-                feed_choice = 0, funclass = 'linear', tau_param = 1, fun_constr = False, dataset_class = 'oml'):
+                feed_choice = 1, funclass = 'linear', tau_param = 1, fun_constr = False, dataset_class = 'oml'):
         
         self.tau_param = tau_param
         self.gamma_param = gamma_param

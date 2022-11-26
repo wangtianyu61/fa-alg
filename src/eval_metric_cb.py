@@ -51,7 +51,7 @@ class offline_eval_metric_cb:
         cumu_loss = np.sum(cumu_group_loss, axis = 0)
         
         self.offline_data['cumu_loss'] = cumu_loss
-        self.summary_loss = {'cumu_loss': cumu_loss[-1]}
+        self.summary_loss = {'cumu_loss': cumu_loss[-1], 'avg_loss': cumu_loss[-1] / self.individual_num}
         for k in range(self.group_num):
             self.offline_data['cumu_loss_' + str(k)] = list(cumu_group_loss[k])
             self.summary_loss['cumu_loss_' + str(k)] = cumu_group_loss[k][-1]
