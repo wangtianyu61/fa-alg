@@ -26,8 +26,8 @@ class offline_eval_metric_cb:
         self.summary_loss = {}
         self.expected_action_parity_disable = True
     def group_loss_parity(self):
-        cumu_group_loss = 0.001 * np.zeros((self.individual_num, self.group_num))
-        cumu_group_num = 0.001 * np.zeros((self.individual_num, self.group_num))
+        cumu_group_loss = 0.001 * np.ones((self.individual_num, self.group_num))
+        cumu_group_num = 0.001 * np.ones((self.individual_num, self.group_num))
         #parity between avg loss
         loss_parity = np.zeros(self.individual_num)
 
@@ -69,7 +69,7 @@ class offline_eval_metric_cb:
         """
         ## 0.001 prevents the case where 0 is the denominator
         avg_action_num = [0.001] * self.action_num
-        group_action_num = 0.001 * np.zeros((self.group_num, self.action_num))
+        group_action_num = 0.001 * np.ones((self.group_num, self.action_num))
         ## initialization
         avg_action_num[self.action[0]] += 1
         group_action_num[self.group[0]][self.action[0]] += 1

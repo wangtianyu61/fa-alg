@@ -48,6 +48,7 @@ class FALCON(base_cb):
     ##pay attention to that the index for dataset and the time do not match 
     def learn_schedule(self):
         self.loss_all = np.zeros(self.sample_number)
+        self.chosen_action_all = np.zeros(self.sample_number)
         pv_loss = 0
         temp_model = None
         for epoch in range(1, self.sample_number):
@@ -58,6 +59,7 @@ class FALCON(base_cb):
                     pmf = list(np.ones(self.action_number))
                     index, prob = self.sample_custom_pmf(pmf)
                     pv_loss += self.loss_encoding(index, self.action_all[t - 1])
+                    self.chosen_action_all[t - 1] = int(index)
                     self.loss_all[t - 1] = self.loss_encoding(index, self.action_all[t - 1])
                     if t == self.sample_number:
                         return pv_loss/t
@@ -79,6 +81,7 @@ class FALCON(base_cb):
                     pmf = self.pmf_compute(self.context_all[t - 1: t], model, epoch)
                     index, prob = self.sample_custom_pmf(pmf)
                     pv_loss += self.loss_encoding(index, self.action_all[t - 1])
+                    self.chosen_action_all[t - 1] = int(index)
                     self.loss_all[t - 1] = self.loss_encoding(index, self.action_all[t - 1])
                     #print(t - 1)
                     if t == self.sample_number:
@@ -90,6 +93,33 @@ class FALCON(base_cb):
     #do the offline regression oracle for the whole schedule
     #might need some machine learning package implemented
     def offreg(self, start, end):
+        # X = self.context_all[start: end]
+        # y = self.action_all[start: end]
+        # action = self.chosen_action_all[start: end]
+        # #loss encoding for the regression problem
+        # model_list = []
+        # for i in range(self.action_number):
+        #     X_i  = X
+        #     y_value_i = [1 if index == i else 0 for index in y]    
+        #     y_value_i = np.array(y_value_i).T
+        #     # satisfy_action = [j for j in range(len(action)) if action[j] == i]
+        #     # if len(satisfy_action) > 0:
+        #     #     X_i = X[satisfy_action]
+        #     #     y_value_i = y[satisfy_action].T
+        #     if self.funclass == 'linear':
+        #         #we first implement the linear model without constraints
+        #         # if self.fun_constr == True:
+        #         #     model = ConstrainedLinearRegression()
+        #         # else:
+        #         model = linear_model.LinearRegression()
+        #     elif self.funclass == 'ridge':
+        #         model = linear_model.Ridge(alpha = 1)
+        #     elif self.funclass == 'GBR':
+        #         model = ensemble.GradientBoostingRegressor(max_depth = 5, n_estimators = 100)
+        #         model.fit(X_i, y_value_i)
+        #     # else:
+        #     #     model = None
+        #     model_list.append(model)
         X = self.context_all[start: end]
         y = self.action_all[start: end]
         #loss encoding for the regression problem
@@ -112,14 +142,16 @@ class FALCON(base_cb):
             model_list.append(model)
         
         return model_list
-    
     #compute the probability for sampling in every round
     def pmf_compute(self, context, model, epoch):
         context = np.array(context)
         predict_y = np.zeros(self.action_number)
         prob = np.zeros(self.action_number)
         for i in range(self.action_number):
-            predict_y[i] = model[i].predict(context)
+            try:
+                predict_y[i] = model[i].predict(context)
+            except Exception as e:
+                predict_y[i] = 1
         #print(predict_y)
         best_arm = []
         max_value = np.max(predict_y)

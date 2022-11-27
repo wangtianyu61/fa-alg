@@ -37,6 +37,7 @@ def output_extraction(output):
     for index in range(len(output_all)):
         #print(output_all[index][0])
         ## (REMARK): current split criterion 
+        #print(output_all[index].split(' '), len(output_all[index].split(' ')))
         if len(output_all[index].split(' ')) >= 50:
             #print(output_all[index].split(''))
             #output_loss_epoch.append(float(output_all[index].split(' ')[0]))
@@ -46,7 +47,7 @@ def output_extraction(output):
             for output_value in output_split:
                 if output_value != '':
                     cnt += 1
-                    if cnt == 5:
+                    if cnt == 6:
                         output_action_epoch.append(int(float(output_value) - 1))
                         break
     cdf_loss = np.multiply(output_loss_epoch, list(range(1, len(output_loss_epoch) + 1)))

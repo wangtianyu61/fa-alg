@@ -3,6 +3,8 @@ def config_choice(model_name):
     if model_name == 'falcon':
         choices = {'gamma_param': [20, 40, 60, 80, 100, 120, 140, 160, 180, 200]}
     else:
+        if model_name == 'supervised':
+            return {'class': ['linear']}
         choices = {'learning_rate': [0.001, 0.01, 0.1, 1, 10],
                    'cb_type': ['dr', 'ips', 'mtr']}
 
