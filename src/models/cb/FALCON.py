@@ -5,6 +5,7 @@ import gzip
 import os
 import random
 import scipy.sparse as sp
+import cvxpy as cp
 import time
 import math
 from sklearn import linear_model, ensemble
@@ -27,6 +28,8 @@ class FALCON(base_cb):
         self.feed_choice = feed_choice #feed_choice = 1 means feed all data before this oracle
         self.fun_constr = fun_constr
         base_cb.__init__(self, csvpath, dataset_class, funclass, group)
+        self.action_parity_param = 0.7
+        self.optimize_kwargs = 'approximate'
     
     #parameter for sampling
     def gamma_func(self, epoch):
@@ -46,7 +49,7 @@ class FALCON(base_cb):
         
     #the overall schedule for implementing that algorithm
     ##pay attention to that the index for dataset and the time do not match 
-    def learn_schedule(self):
+    def learn_schedule(self, loss_fair_type = None, action_fair_type = None):
         self.loss_all = np.zeros(self.sample_number)
         self.chosen_action_all = np.zeros(self.sample_number)
         pv_loss = 0
@@ -73,12 +76,12 @@ class FALCON(base_cb):
                         start = 0
                     end = self.tau(epoch - 1)
                     
-                    model = self.offreg(start, end)
+                    model = self.offreg(start, end, loss_fair_type)
                     temp_model = model
                 else:
                     model = temp_model
                 for t in range(self.tau(epoch - 1) + 1, self.tau(epoch) + 1):
-                    pmf = self.pmf_compute(self.context_all[t - 1: t], model, epoch)
+                    pmf = self.pmf_compute(t, model, epoch, action_fair_type)
                     index, prob = self.sample_custom_pmf(pmf)
                     pv_loss += self.loss_encoding(index, self.action_all[t - 1])
                     self.chosen_action_all[t - 1] = int(index)
@@ -92,7 +95,7 @@ class FALCON(base_cb):
     
     #do the offline regression oracle for the whole schedule
     #might need some machine learning package implemented
-    def offreg(self, start, end):
+    def offreg(self, start, end, loss_fair_type):
         # X = self.context_all[start: end]
         # y = self.action_all[start: end]
         # action = self.chosen_action_all[start: end]
@@ -122,6 +125,7 @@ class FALCON(base_cb):
         #     model_list.append(model)
         X = self.context_all[start: end]
         y = self.action_all[start: end]
+        #loss = self.loss_all[start: end]
         #loss encoding for the regression problem
         model_list = []
         for i in range(self.action_number):
@@ -138,12 +142,41 @@ class FALCON(base_cb):
                 model = linear_model.Ridge(alpha = 1)
             elif self.funclass == 'GBR':
                 model = ensemble.GradientBoostingRegressor(max_depth = 5, n_estimators = 100)
-            model.fit(X, y_value_i)
+            if loss_fair_type == None:
+                model.fit(X, y_value_i)
+            elif loss_fair_type == 'history-group-weight':
+                #track history loss to obtain sample weight
+                group_weight = self.group_loss_weight(start, end)
+                model.fit(X, y_value_i, sample_weight = group_weight)
+            else:
+                #(TODO): add other fair constraints e.g. minimax
+                raise NotImplementedError
             model_list.append(model)
         
         return model_list
+    def group_loss_weight(self, start, end):
+        loss = self.loss_all[start: end]
+        group = self.group[start: end]
+        #print(group)
+        #build group weight based on relative loss
+        group_weight = np.zeros(self.group_num)
+        for k in range(self.group_num):
+            group_loss = [loss[i] for i in range(len(loss)) if group[i] == k]
+        
+            if len(group_loss) > 0:
+                group_weight[k] = np.average(group_loss)
+            
+        #print(group_weight)
+        #assign weight to each individual
+        # if len(group) < 10:
+        #     print(group)
+        #     print([group_weight[grp_idx] for grp_idx in group])
+        #     print('=========')
+        return np.array([group_weight[grp_idx] for grp_idx in group])
+
     #compute the probability for sampling in every round
-    def pmf_compute(self, context, model, epoch):
+    def pmf_compute(self, t, model, epoch, action_fair_type = None):
+        context = self.context_all[(t - 1): t]
         context = np.array(context)
         predict_y = np.zeros(self.action_number)
         prob = np.zeros(self.action_number)
@@ -165,8 +198,33 @@ class FALCON(base_cb):
         #randomize the maximum probability
         for i in best_arm:
             prob[i] = (1 - no_best_sum)/len(best_arm)
-        #print(prob)
-        return list(prob)
+        if action_fair_type == None:
+            return list(prob)
+        elif action_fair_type == 'action-parity':
+            assert (self.action_parity_param >= 0 and self.action_parity_param <= 1)
+            #project the original loss vector to get more close to avg performance
+            prev_actions = list(self.chosen_action_all[0:(t-1)])
+            avg_action_prob = [prev_actions.count(k) for k in range(self.action_number)]
+            avg_action_prob = np.array(avg_action_prob) / sum(avg_action_prob)
+            if self.optimize_kwargs == 'complete':
+                #solve a linear optimization problem IMPLEMENTED BY CVXPY
+                project_prob = cp.Variable(self.action_number)
+                expect_reward = predict_y @ project_prob
+                target_value = sum([prob[i] - avg_action_prob[i] for i in range(self.action_number)])
+                problem = cp.Problem(cp.Maximize(expect_reward), [cp.sum(project_prob) == 1, project_prob >= 0, 
+                                        cp.sum(cp.abs(project_prob - avg_action_prob)) <= self.action_parity_param * target_value])
+                try:
+                    problem.solve(solver = cp.GUROBI)
+                    
+                    return list(project_prob.value)
+                except Exception as e:
+                    return list(prob)
+            elif self.optimize_kwargs == 'approximate':
+                project_prob = (1 - self.action_parity_param) * avg_action_prob + self.action_parity_param * prob
+                return project_prob
+        else:
+            raise NotImplementedError
+
     
 #use for learning_to_rank datasets.
 class FALCON_ldf(base_cb_ldf):
