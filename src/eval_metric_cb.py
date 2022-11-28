@@ -102,6 +102,40 @@ class offline_eval_metric_cb:
         if self.expected_action_parity_disable == False:
             self.group_action_parity_computation('expected')
         
-    def individual_loss_parity(self):
+    def individual_loss_parity_computation(self, prefix = 'realized', time_window = None, order = None):
+        """
+        order: one-side or two-side (i.e. full time or hindsight), default None means two-side, i.e. the action for one individual is fair to both former and latter.
+        time_window: default None mean compute the unfairness from the start time until now, otherwise only compute K-step unfairness (moving window)
+        action_distance encoding (realized): if action are different, label action_distance to be 1 otherwise 0.
+        =sum indicate function {d(a_1, a_2) >= c1 * d(x1, x_2) + c2}
+        """
+        loss_parity = np.zeros(self.individual_num) 
+        c1 = 1
+        c2 = 0.5
+
+        if order == None:
+            for t1 in range(1, self.individual_num):
+                if t1 % 100 == 0:
+                    print(t1)
+                loss_parity[t1] = loss_parity[t1 - 1]
+                if time_window == None:
+                    time_window = t1
+                for t2 in range(max(0, t1 - time_window), t1):
+                    if self.action[t1] != self.action[t2]:
+                        #compute the feature distance to see if there is some unfairness
+                        #print(c1 * np.linalg.norm(self.context[t1] - self.context[t2]) + c2)
+                        if c1 * np.linalg.norm(self.context[t1] - self.context[t2]) + c2 >= 1:
+                            #print(c1 * np.linalg.norm(self.context[t1] - self.context[t2]) + c2)
+                            loss_parity[t1] += 1
+            #self.offline_data['individual_loss_parity_' + prefix] = list(loss_parity)
+            self.summary_loss['individual_loss_parity_' + prefix] = loss_parity[-1]
+        else:
+            raise NotImplementedError
+
+
+       
+          
+
+    def individual_loss_parity(self, time_window = None, order = None):
         #involve the interaction with the context...
-        pass
+        self.individual_loss_parity_computation('realized')

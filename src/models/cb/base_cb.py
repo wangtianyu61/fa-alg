@@ -38,6 +38,7 @@ class base_cb:
                     idx_num += 1
                 self.group[i] = int(set_idx[str_key])
             self.group = [int(j) for j in self.group]
+            self.group_num = idx_num
 
 
         self.context_all = self.preprocessing(df[df_feature_columns])

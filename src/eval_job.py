@@ -29,7 +29,7 @@ def run_jobs():
     dataset_config = get_dataset_config(dataset, **dataset_kwargs)
 
     all_config_results = []
-    for model_name in ['falcon', 'bag']:
+    for model_name in ['falcon']:
         #model_name = 'falcon'
         
         #config_result = {'model': model_name, 'config': str(config_param)}

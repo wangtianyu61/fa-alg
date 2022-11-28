@@ -1,7 +1,7 @@
 
 def config_choice(model_name):
     if model_name == 'falcon':
-        choices = {'gamma_param': [20, 40, 60, 80, 100, 120, 140, 160, 180, 200]}
+        choices = {'gamma_param': [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280]}
     else:
         if model_name == 'supervised':
             return {'class': ['linear']}
