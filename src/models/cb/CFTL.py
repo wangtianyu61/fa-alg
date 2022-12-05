@@ -5,7 +5,6 @@ from tqdm import tqdm
 import faiss
 import torch 
 import torch.nn as nn
-import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from src.models.cb.base_cb import base_cb
 

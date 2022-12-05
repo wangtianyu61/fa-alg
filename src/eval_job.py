@@ -22,8 +22,7 @@ def run_jobs():
 
     dataset = ADULT
     n_actions = 2
-    # csv_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.csv'
-    csv_path = '3_fairness/fa-alg/downloads/adult/adult_2.csv'
+    csv_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.csv'
     vw_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.vw.gz'
     output_path = 'results/' + dataset 
 
