@@ -15,28 +15,41 @@ def get_dataset(dataset="adult", root="src/datasets"):
     return dset
 
 
-def to_vw_format(context, actions, cb_label=None):
-    if cb_label is not None:
-        chosen_action, cost, prob = cb_label
-    res = "shared |"
-    res += ' '.join(
-                "{}:{:.6f}".format(j, val) 
-                for j, val in enumerate(context) if val != 0
-                # zip(list(context.index), list(context))
-            ) + '\n'
+# def to_vw_format(context, actions, cb_label=None):
+#     if cb_label is not None:
+#         chosen_action, cost, prob = cb_label
+#     res = "shared |"
+#     res += ' '.join(
+#                 "{}:{:.6f}".format(j, val) 
+#                 for j, val in enumerate(context) if val != 0
+#                 # zip(list(context.index), list(context))
+#             ) + '\n'
     
-    for action in actions:
-        if cb_label is not None and action == chosen_action:
-            res += "0:{}:{} ".format(cost, prob)
-        res += "|Action a={} \n".format(action)
-    # Strip the last newline
-    return res[:-1]
+#     for action in actions:
+#         if cb_label is not None and action == chosen_action:
+#             res += "0:{}:{} ".format(cost, prob)
+#         res += "|Action a={} \n".format(action)
+#     # Strip the last newline
+#     return res[:-1]
+def to_vw_format(context, action):
+    res = '{} | {}\n'.format(action, ' '.join(
+            '{}:{:.6f}'.format(j, val) for j, val in enumerate(context) if val != 0))
+    return res
 
+def get_context(context, actions):
+    res = ''
+    #for action in actions:
+    res += '1, 2 | {}\n'.format(' '.join(
+                    '{}:{:.6f}'.format(j, val) for j, val in enumerate(context) if val != 0))
+
+    return res
 
 def get_action(model, context, actions):
-    vw_context = to_vw_format(context, actions)
+    vw_context = get_context(context, actions)
     pmf = model.predict(vw_context)
+    print(pmf)
     pmf = [p/sum(pmf) for p in pmf]
+
     action = np.random.choice(actions, p=pmf)
     prob = np.array(pmf)[np.array(actions)==action][0]
     return action, prob
@@ -69,9 +82,9 @@ def train(dataset, model):
 
         # train
         vw_format = model.parse(
-            to_vw_format(feat, actions, (action_true, -1, 1)),
+            to_vw_format(feat, action_true),
             vowpalwabbit.LabelType.CONTEXTUAL_BANDIT,
-        )   
+        )  
         model.learn(vw_format)
 
     return reward, records
@@ -88,11 +101,11 @@ def plot_ctr(reward):
 def main():
     dset = get_dataset()
 
-    vw = vowpalwabbit.Workspace("--cb_explore 2 --bag 4")
+    vw = vowpalwabbit.Workspace("--cbify 2 --cb_explore_adf --bag 4")
 
     reward, records = train(dset, vw)
     plot_ctr(reward)
-    return records
+    #return records
 
 
 

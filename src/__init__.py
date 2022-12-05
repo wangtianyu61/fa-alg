@@ -1,0 +1,3 @@
+C1 = 0.5
+C2 = 0.5
+IND_TIME_WINDOW = 100
