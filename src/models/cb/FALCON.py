@@ -9,8 +9,11 @@ import cvxpy as cp
 import time
 import math
 from sklearn import linear_model, ensemble
-from src.models.cb.base_cb import base_cb, base_cb_ldf
 from sklearn.preprocessing import MinMaxScaler
+
+from src import C1, C2, IND_TIME_WINDOW
+from src.models.cb.base_cb import base_cb, base_cb_ldf
+from src.models.cb.minmax_regressor import MinmaxLinearModel
 
 VW_DS_DIR = '../datasets/vwdatasets/'
 HOTEL_DS_DIR = '../datasets/pricing/MSOM_Hotel/'
@@ -20,7 +23,7 @@ def ds_files(DS_DIR):
     return sorted(glob.glob(os.path.join(DS_DIR, '*.csv')))
 
 class FALCON(base_cb):
-    def __init__(self, csvpath, gamma_param, group = None, 
+    def __init__(self, csvpath, gamma_param, group = None, action_parity = 0.5, ind_parity = 0.5,
                 feed_choice = 1, funclass = 'linear', tau_param = 1, fun_constr = False, dataset_class = 'oml'):
         
         self.tau_param = tau_param
@@ -28,8 +31,10 @@ class FALCON(base_cb):
         self.feed_choice = feed_choice #feed_choice = 1 means feed all data before this oracle
         self.fun_constr = fun_constr
         base_cb.__init__(self, csvpath, dataset_class, funclass, group)
-        self.action_parity_param = 0.7
+        self.action_parity_param = action_parity
         self.optimize_kwargs = 'approximate'
+        self.individual_parity_param = ind_parity
+        self.cnt = 0
     
     #parameter for sampling
     def gamma_func(self, epoch):
@@ -147,7 +152,14 @@ class FALCON(base_cb):
             elif loss_fair_type == 'history-group-weight':
                 #track history loss to obtain sample weight
                 group_weight = self.group_loss_weight(start, end)
-                model.fit(X, y_value_i, sample_weight = group_weight)
+                if sum(group_weight) > 0:
+                    model.fit(X, y_value_i, sample_weight = group_weight)
+                else:
+                    model.fit(X, y_value_i)
+            
+            elif loss_fair_type == 'minmax-weight':
+                model = MinmaxLinearModel()
+                model.fit(X, y_value_i, self.group[start: end])
             else:
                 #(TODO): add other fair constraints e.g. minimax
                 raise NotImplementedError
@@ -180,6 +192,7 @@ class FALCON(base_cb):
         context = np.array(context)
         predict_y = np.zeros(self.action_number)
         prob = np.zeros(self.action_number)
+        
         for i in range(self.action_number):
             try:
                 predict_y[i] = model[i].predict(context)
@@ -200,7 +213,7 @@ class FALCON(base_cb):
             prob[i] = (1 - no_best_sum)/len(best_arm)
         if action_fair_type == None:
             return list(prob)
-        elif action_fair_type == 'action-parity':
+        elif action_fair_type == 'group-action-parity':
             assert (self.action_parity_param >= 0 and self.action_parity_param <= 1)
             #project the original loss vector to get more close to avg performance
             prev_actions = list(self.chosen_action_all[0:(t-1)])
@@ -220,8 +233,25 @@ class FALCON(base_cb):
                 except Exception as e:
                     return list(prob)
             elif self.optimize_kwargs == 'approximate':
-                project_prob = (1 - self.action_parity_param) * avg_action_prob + self.action_parity_param * prob
+                project_prob = self.action_parity_param * avg_action_prob + (1 - self.action_parity_param) * prob
                 return project_prob
+        elif action_fair_type == 'individual-parity':
+            assert (self.individual_parity_param >= 0 and self.individual_parity_param <= 1)
+            #align with empirical distribution of past K = time_window decisions
+            ## find the empirical history action through past K periods similar to the current period
+            individual_prob = np.zeros(self.action_number)
+            for past_t in range(max(0, t - IND_TIME_WINDOW - 1), t - 1):
+                ## similar contexts
+                if C1 * np.linalg.norm(self.context_all[past_t] - self.context_all[t - 1]) + C2 <= 1:
+                    individual_prob[int(self.chosen_action_all[past_t])] += 1
+            if np.sum(individual_prob) > 0:
+                self.cnt += 1
+                individual_prob = np.array(individual_prob) / sum(individual_prob)
+                project_prob = self.individual_parity_param * individual_prob + (1 - self.individual_parity_param) * prob
+                return list(project_prob)
+            else:
+                return list(prob)
+
         else:
             raise NotImplementedError
 
