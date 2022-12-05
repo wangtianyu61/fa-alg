@@ -9,14 +9,6 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from src.models.cb.base_cb import base_cb
 
-# def get_dataset(dataset="adult", root="src/datasets"):
-#      ## get data from csv file
-#     dataset_kwargs = {'root_dir': root}
-#     dataset_config = get_dataset_config(dataset, **dataset_kwargs)
-#     dset = src.datasets.utils.get_dataset(dataset_config)
-#     return dset
-
-
 
 class CFTL(base_cb):
 
