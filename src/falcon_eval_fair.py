@@ -66,7 +66,7 @@ def run_falcon_fair_loss(dataset = 'adult'):
     all_results = []
     loop_num = 10
     for gamma_param in [50, 100, 150, 200, 250, 300]:
-        for loss_type in [None, 'history-group-weight']:
+        for loss_type in ['history-group-weight2']:
             for j in range(loop_num):
                 sample_falcon = FALCON(csvpath = csv_path, gamma_param = gamma_param, 
                                             group = dataset_config.sens)

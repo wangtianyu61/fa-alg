@@ -156,7 +156,13 @@ class FALCON(base_cb):
                     model.fit(X, y_value_i, sample_weight = group_weight)
                 else:
                     model.fit(X, y_value_i)
-            
+            elif loss_fair_type == 'history-group-weight2':
+                group_weight = self.group_loss_weight(start, end)
+                group_weight = np.array([weight ** 2 for weight in list(group_weight)])
+                if sum(group_weight) > 0:
+                    model.fit(X, y_value_i, sample_weight = group_weight)
+                else:
+                    model.fit(X, y_value_i)
             elif loss_fair_type == 'minmax-weight':
                 model = MinmaxLinearModel()
                 model.fit(X, y_value_i, self.group[start: end])
