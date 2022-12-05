@@ -6,8 +6,9 @@ import pandas as pd
 
 from src.models.cb.base_cb import base_cb
 from src.models.cb.FALCON import FALCON
-from src.models.cb import config_choice, config_to_pair
+from src.models.cb import config_choice, config_to_pair, FALCON_FAIR
 from src.utils import generator
+from src import IND_TIME_WINDOW
 
 from src.eval_metric_cb import offline_eval_metric_cb
 from src.utils.joint_regret import output_extraction
@@ -18,7 +19,7 @@ VW = 'vw'
 def run_jobs():
     model_classes = ['falcon', 'bag', 'regcbopt', 'eps-greedy', 'cover', 'supervised']
 
-    dataset = CANDC
+    dataset = ADULT
     n_actions = 2
     csv_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.csv'
     vw_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.vw.gz'
@@ -29,7 +30,8 @@ def run_jobs():
     dataset_config = get_dataset_config(dataset, **dataset_kwargs)
 
     all_config_results = []
-    for model_name in ['falcon']:
+    for model_name in model_classes:
+    #['regcbopt', 'eps-greedy', 'cover', 'supervised', 'falcon', 'bag']:
         #model_name = 'falcon'
         
         #config_result = {'model': model_name, 'config': str(config_param)}
@@ -38,18 +40,20 @@ def run_jobs():
         print(all_params)
         cmd = [VW, vw_path, '-b', '24', '--progress', '1']
         for idx, config_param in enumerate(generator(all_params)):
-            
+            print(config_param)
             if model_name == 'falcon':
                 #run the algorithm
                 config_param.update({'idx': idx})
-                sample_falcon = FALCON(csvpath = csv_path, gamma_param = config_param['gamma_param'], group = dataset_config.sens)
-                sample_falcon.learn_schedule()
+                sample_falcon = FALCON(csvpath = csv_path, gamma_param = config_param['gamma_param'], group = dataset_config.sens,
+                                         action_parity = 0.5, ind_parity = 0.5)
+                sample_falcon.learn_schedule(action_fair_type = config_param['action_fair_type'],
+                                            loss_fair_type = config_param['loss_fair_type'])
                 eval_model = offline_eval_metric_cb(group = sample_falcon.group, context = sample_falcon.context_all,
                                                     action = sample_falcon.chosen_action_all.astype(int), loss = sample_falcon.loss_all)
-            
+                
             else:
                 #call the VW model
-                if model_name in ['bag', 'regopt', 'eps-greedy', 'cover']:
+                if model_name in ['bag', 'regcbopt', 'eps-greedy', 'cover']:
                     #config_param = {'bag': 4, 'idx': idx}
                     #call the command
                     cmd = [VW, vw_path, '-b', '24', '--progress', '1']
@@ -90,13 +94,21 @@ def run_jobs():
             config_result = {'model': model_name, 'config': str(config_param)}
             eval_model.group_loss_parity()
             eval_model.group_action_parity()
+            eval_model.individual_loss_parity()
             config_result.update(eval_model.summary_loss)
-            eval_model.offline_data.to_csv(os.path.join(output_path, dataset + '_' + model_name + '_' + str(idx) + '.csv'))
-            
+            if FALCON_FAIR == False:
+
+                eval_model.offline_data.to_csv(os.path.join(output_path, dataset + '_' + model_name + '_' + str(idx) + '.csv'))
+            else:
+                
+                eval_model.offline_data.to_csv(os.path.join(output_path, dataset + '_' + model_name + '_' + str(idx) + '_fair.csv'))
             all_config_results.append(config_result)
 
     df = pd.DataFrame(all_config_results)
-    output_file = os.path.join(output_path, dataset + '_summary.csv')
+    if FALCON_FAIR == False:
+        output_file = os.path.join(output_path, dataset + '_summary.csv')
+    else:
+        output_file = os.path.join(output_path, dataset + '_summary_fair.csv')
     if os.path.exists(output_file) == False:
         df.to_csv(output_file)
     else:

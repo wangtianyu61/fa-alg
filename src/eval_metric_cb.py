@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-
+from src import C1, C2, IND_TIME_WINDOW
 
 class offline_eval_metric_cb:
     def __init__(self, group, context, action, loss, prob = None):
@@ -102,7 +102,7 @@ class offline_eval_metric_cb:
         if self.expected_action_parity_disable == False:
             self.group_action_parity_computation('expected')
         
-    def individual_loss_parity_computation(self, prefix = 'realized', time_window = None, order = None):
+    def individual_loss_parity_computation(self, prefix = 'realized', order = None):
         """
         order: one-side or two-side (i.e. full time or hindsight), default None means two-side, i.e. the action for one individual is fair to both former and latter.
         time_window: default None mean compute the unfairness from the start time until now, otherwise only compute K-step unfairness (moving window)
@@ -110,12 +110,13 @@ class offline_eval_metric_cb:
         =sum indicate function {d(a_1, a_2) >= c1 * d(x1, x_2) + c2}
         """
         loss_parity = np.zeros(self.individual_num) 
-        c1 = 1
-        c2 = 0.5
+        c1 = C1
+        c2 = C2
+        time_window = IND_TIME_WINDOW
 
         if order == None:
             for t1 in range(1, self.individual_num):
-                if t1 % 100 == 0:
+                if t1 % 1000 == 0:
                     print(t1)
                 loss_parity[t1] = loss_parity[t1 - 1]
                 if time_window == None:
@@ -124,11 +125,11 @@ class offline_eval_metric_cb:
                     if self.action[t1] != self.action[t2]:
                         #compute the feature distance to see if there is some unfairness
                         #print(c1 * np.linalg.norm(self.context[t1] - self.context[t2]) + c2)
-                        if c1 * np.linalg.norm(self.context[t1] - self.context[t2]) + c2 >= 1:
+                        if c1 * np.linalg.norm(self.context[t1] - self.context[t2]) + c2 <= 1:
                             #print(c1 * np.linalg.norm(self.context[t1] - self.context[t2]) + c2)
                             loss_parity[t1] += 1
-            #self.offline_data['individual_loss_parity_' + prefix] = list(loss_parity)
-            self.summary_loss['individual_loss_parity_' + prefix] = loss_parity[-1]
+            self.offline_data['individual_loss_parity_' + prefix] = list([loss_parity[i] / (min(IND_TIME_WINDOW, i + 1) * (i + 1)) for i in range(self.individual_num)])
+            self.summary_loss['individual_loss_parity_' + prefix] = loss_parity[-1] / (IND_TIME_WINDOW * self.individual_num)
         else:
             raise NotImplementedError
 
@@ -136,6 +137,6 @@ class offline_eval_metric_cb:
        
           
 
-    def individual_loss_parity(self, time_window = None, order = None):
+    def individual_loss_parity(self, order = None):
         #involve the interaction with the context...
-        self.individual_loss_parity_computation('realized')
+        self.individual_loss_parity_computation('realized', order)

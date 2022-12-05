@@ -1,11 +1,18 @@
-
+FALCON_FAIR = False
 def config_choice(model_name):
     if model_name == 'falcon':
-        choices = {'gamma_param': [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280]}
+        if FALCON_FAIR == False:
+            choices = {'gamma_param': [25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300],
+                        'action_fair_type': [None],
+                        'loss_fair_type': [None]}
+        else:
+            choices = {"gamma_param": [50, 100, 150, 200, 250, 300],
+                        'action_fair_type': [None, 'individual-parity', 'group-action-parity'],
+                        'loss_fair_type': [None, 'history-group-weight']}
     else:
         if model_name == 'supervised':
             return {'class': ['linear']}
-        choices = {'learning_rate': [0.001, 0.01, 0.1, 1, 10],
+        choices = {'learning_rate': [0.001, 0.01, 0.1, 1],
                    'cb_type': ['dr', 'ips', 'mtr']}
 
         if model_name == 'bag':
@@ -15,7 +22,7 @@ def config_choice(model_name):
         elif model_name == 'regcbopt':
             choices.update({'regcbopt': [None], 'mellowness': [1e-1, 1e-2, 1e-3]})
         elif model_name == 'cover':
-            choices.update({'cover': [1, 4, 8], 'psi': [0, 0.01, 0.1, 0.5]})
+            choices.update({'cover': [1, 4, 8], 'psi': [0, 0.1, 0.5]})
     return choices
 
 #update cmd for vw command line
