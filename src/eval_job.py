@@ -6,6 +6,7 @@ import pandas as pd
 
 from src.models.cb.base_cb import base_cb
 from src.models.cb.FALCON import FALCON
+from src.models.cb.CFTL import CFTL
 from src.models.cb import config_choice, config_to_pair, FALCON_FAIR
 from src.utils import generator
 from src import IND_TIME_WINDOW
@@ -17,11 +18,12 @@ VW = 'vw'
 
 #(TODO): remind to incorporate the multi-action case...
 def run_jobs():
-    model_classes = ['falcon', 'bag', 'regcbopt', 'eps-greedy', 'cover', 'supervised']
+    model_classes = ['cftl', 'falcon', 'bag', 'regcbopt', 'eps-greedy', 'cover', 'supervised']
 
     dataset = ADULT
     n_actions = 2
-    csv_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.csv'
+    # csv_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.csv'
+    csv_path = '3_fairness/fa-alg/downloads/adult/adult_2.csv'
     vw_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.vw.gz'
     output_path = 'results/' + dataset 
 
@@ -50,7 +52,15 @@ def run_jobs():
                                             loss_fair_type = config_param['loss_fair_type'])
                 eval_model = offline_eval_metric_cb(group = sample_falcon.group, context = sample_falcon.context_all,
                                                     action = sample_falcon.chosen_action_all.astype(int), loss = sample_falcon.loss_all)
-                
+            
+            elif model_name == "cftl":
+                config_param.update({'idx': idx})
+                sample_cftl = CFTL(csv_path, group=dataset_config.sens)
+                sample_cftl.fit()
+                sample_cftl.eval()
+                eval_model = offline_eval_metric_cb(group=sample_cftl.group, context=sample_cftl.context_all,
+                                                    action=sample_cftl.chosen_action_all.astype(int), loss=sample_cftl.loss_all)
+
             else:
                 #call the VW model
                 if model_name in ['bag', 'regcbopt', 'eps-greedy', 'cover']:
@@ -116,3 +126,7 @@ def run_jobs():
         df_raw = pd.read_csv(output_file)
         df_concat = pd.concat([df_raw, df])
         df_concat.to_csv(output_file, index = None)
+
+
+if __name__ == "__main__":
+    run_jobs()
