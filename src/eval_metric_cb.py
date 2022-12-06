@@ -116,8 +116,6 @@ class offline_eval_metric_cb:
 
         if order == None:
             for t1 in range(1, self.individual_num):
-                if t1 % 1000 == 0:
-                    print(t1)
                 loss_parity[t1] = loss_parity[t1 - 1]
                 if time_window == None:
                     time_window = t1

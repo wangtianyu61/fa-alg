@@ -31,9 +31,30 @@ class FALCON(base_cb):
         self.feed_choice = feed_choice #feed_choice = 1 means feed all data before this oracle
         self.fun_constr = fun_constr
         base_cb.__init__(self, csvpath, dataset_class, funclass, group)
-        self.action_parity_param = action_parity
+        
         self.optimize_kwargs = 'approximate'
-        self.individual_parity_param = ind_parity
+        if type(action_parity) == float:
+            self.action_parity_func = lambda t: action_parity
+        elif action_parity == 'linear':
+            self.action_parity_func = lambda t: t / self.sample_number
+        elif action_parity == 'quad':
+            self.action_parity_func = lambda t: (t / self.sample_number) ** 2
+        elif action_parity == 'log':
+            self.action_parity_func = lambda t: math.log(1 + t / self.sample_number)
+        elif action_parity == 'cube':
+            self.action_parity_func = lambda t: (t / self.sample_number) ** 3
+
+        if type(ind_parity) == float:
+            self.individual_parity_func = lambda t: ind_parity
+        elif ind_parity == 'linear':
+            self.individual_parity_func = lambda t: t / self.sample_number
+        elif ind_parity == 'quad':
+            self.individual_parity_func = lambda t: (t / self.sample_number) ** 2
+        elif ind_parity == 'log':
+            self.individual_parity_func = lambda t: math.log(1 + t / self.sample_number)
+        elif ind_parity == 'cube':
+            self.individual_parity_func = lambda t: (t / self.sample_number) ** 3
+ 
         self.cnt = 0
     
     #parameter for sampling
@@ -220,6 +241,7 @@ class FALCON(base_cb):
         if action_fair_type == None:
             return list(prob)
         elif action_fair_type == 'group-action-parity':
+            self.action_parity_param = self.action_parity_func(t - 1)
             assert (self.action_parity_param >= 0 and self.action_parity_param <= 1)
             #project the original loss vector to get more close to avg performance
             prev_actions = list(self.chosen_action_all[0:(t-1)])
@@ -242,6 +264,7 @@ class FALCON(base_cb):
                 project_prob = self.action_parity_param * avg_action_prob + (1 - self.action_parity_param) * prob
                 return project_prob
         elif action_fair_type == 'individual-parity':
+            self.individual_parity_param = self.individual_parity_func(t - 1)
             assert (self.individual_parity_param >= 0 and self.individual_parity_param <= 1)
             #align with empirical distribution of past K = time_window decisions
             ## find the empirical history action through past K periods similar to the current period

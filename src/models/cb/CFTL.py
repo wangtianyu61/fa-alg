@@ -7,15 +7,16 @@ import torch
 import torch.nn as nn
 from sklearn.linear_model import LogisticRegression
 from src.models.cb.base_cb import base_cb
+from src import C1, C2, IND_TIME_WINDOW
 
 
 class CFTL(base_cb):
 
-    def __init__(self, csvpath, dataset_class="oml", funclass="linear", group=None, K=60):
+    def __init__(self, csvpath, dataset_class="oml", funclass="linear", group=None, K = IND_TIME_WINDOW):
         self.K = K
         base_cb.__init__(self, csvpath, dataset_class, funclass, group)
 
-    def get_bounds(self, X_k, x_t, Y_k, lambd = 0.5, gamma=0.5):
+    def get_bounds(self, X_k, x_t, Y_k, lambd = C1, gamma = C2):
         n, d = np.shape(X_k)
         index = faiss.IndexFlatL2(d)
         index.add(np.ascontiguousarray(X_k))
@@ -43,6 +44,8 @@ class CFTL(base_cb):
             l, u = self.get_bounds(X_k.astype("float32"), X[[t], :].astype("float32"), Y_k)
             self.y_logit[t] = np.clip(self.y_logit[t], a_min=l, a_max=u)
             if t % 1000 == 0:
+            ## only update under 2^k time index
+            #if t & (t - 1) == 0:
                 model = LogisticRegression(max_iter=500).fit(x_t, y_t)
             
 

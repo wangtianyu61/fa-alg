@@ -20,7 +20,7 @@ VW = 'vw'
 def run_jobs():
     model_classes = ['cftl', 'falcon', 'bag', 'regcbopt', 'eps-greedy', 'cover', 'supervised']
 
-    dataset = ADULT
+    dataset = GERMAN
     n_actions = 2
     csv_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.csv'
     vw_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.vw.gz'
@@ -38,7 +38,7 @@ def run_jobs():
         #config_result = {'model': model_name, 'config': str(config_param)}
         #obtain the config from that model class
         all_params = config_choice(model_name)
-        print(all_params)
+        print(model_name, all_params)
         cmd = [VW, vw_path, '-b', '24', '--progress', '1']
         for idx, config_param in enumerate(generator(all_params)):
             print(config_param)

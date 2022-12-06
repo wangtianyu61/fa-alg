@@ -28,7 +28,7 @@ def run_falcon_fair(action_type = 'group-action-parity', dataset = 'adult'):
     dataset_config = get_dataset_config(dataset, **dataset_kwargs)
     all_results = []
     for gamma_param in [100]:
-        for ind_parity in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:    
+        for ind_parity in ['linear', 'quad', 'log', 'cube']:    
             sample_falcon = FALCON(csvpath = csv_path, gamma_param = gamma_param, 
                                     group = dataset_config.sens, action_parity = ind_parity, ind_parity = ind_parity)
             sample_falcon.learn_schedule(action_fair_type = action_type)
@@ -43,7 +43,7 @@ def run_falcon_fair(action_type = 'group-action-parity', dataset = 'adult'):
             all_results.append(config_result)
 
     df = pd.DataFrame(all_results)
-    output_file = os.path.join(output_path, dataset + '_summary_' + action_type + '.csv')
+    output_file = os.path.join(output_path, dataset + '_summarynew_' + action_type + '.csv')
     if os.path.exists(output_file) == False:
         df.to_csv(output_file, index = None)
     else:
@@ -66,22 +66,26 @@ def run_falcon_fair_loss(dataset = 'adult'):
     all_results = []
     loop_num = 10
     for gamma_param in [50, 100, 150, 200, 250, 300]:
-        for loss_type in ['history-group-weight2']:
-            for j in range(loop_num):
-                sample_falcon = FALCON(csvpath = csv_path, gamma_param = gamma_param, 
-                                            group = dataset_config.sens)
-                sample_falcon.learn_schedule(loss_fair_type = loss_type)
-                eval_model = offline_eval_metric_cb(group = sample_falcon.group, context = sample_falcon.context_all,
-                                                            action = sample_falcon.chosen_action_all.astype(int), loss = sample_falcon.loss_all)
-                config_result = {'gamma': gamma_param, 'fair_loss_type': loss_type}
-                eval_model.group_loss_parity()
-                eval_model.group_action_parity()
-                eval_model.individual_loss_parity()
-                config_result.update(eval_model.summary_loss)
-                all_results.append(config_result)
+        for loss_type in ['minmax-weight']:
+            #add GBR 
+            for model_class in ['linear']:
+                if model_class == 'GBR' and loss_type == 'minmax-weight':
+                    continue
+                for j in range(loop_num):
+                    sample_falcon = FALCON(csvpath = csv_path, gamma_param = gamma_param, 
+                                                group = dataset_config.sens, funclass = model_class)
+                    sample_falcon.learn_schedule(loss_fair_type = loss_type)
+                    eval_model = offline_eval_metric_cb(group = sample_falcon.group, context = sample_falcon.context_all,
+                                                                action = sample_falcon.chosen_action_all.astype(int), loss = sample_falcon.loss_all)
+                    config_result = {'gamma': gamma_param, 'fair_loss_type': loss_type}
+                    eval_model.group_loss_parity()
+                    eval_model.group_action_parity()
+                    eval_model.individual_loss_parity()
+                    config_result.update(eval_model.summary_loss)
+                    all_results.append(config_result)
     
     df = pd.DataFrame(all_results)
-    output_file = os.path.join(output_path, dataset + '_summary_loss.csv')
+    output_file = os.path.join(output_path, dataset + '_summary_loss_linear.csv')
     #df.to_csv(output_file, index = None)
     if os.path.exists(output_file) == False:
         df.to_csv(output_file, index = None)
