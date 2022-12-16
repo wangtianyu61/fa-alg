@@ -33,7 +33,8 @@ class FALCON(base_cb):
         base_cb.__init__(self, csvpath, dataset_class, funclass, group)
         
         self.optimize_kwargs = 'approximate'
-        if type(action_parity) == float:
+        print(type(action_parity))
+        if type(action_parity) in [np.float64, int]:
             self.action_parity_func = lambda t: action_parity
         elif action_parity == 'linear':
             self.action_parity_func = lambda t: t / self.sample_number
@@ -43,8 +44,13 @@ class FALCON(base_cb):
             self.action_parity_func = lambda t: math.log(1 + t / self.sample_number)
         elif action_parity == 'cube':
             self.action_parity_func = lambda t: (t / self.sample_number) ** 3
+        elif action_parity == 'test':
+            self.action_parity_func = lambda t: 0 if t < self.sample_number / 5 else 0.5
+        elif action_parity == 'test2':
+            self.action_parity_func = lambda t: 0 if t < self.sample_number / 5 else 0.8
 
-        if type(ind_parity) == float:
+
+        if type(ind_parity) in [np.float64, int]:
             self.individual_parity_func = lambda t: ind_parity
         elif ind_parity == 'linear':
             self.individual_parity_func = lambda t: t / self.sample_number
@@ -54,6 +60,11 @@ class FALCON(base_cb):
             self.individual_parity_func = lambda t: math.log(1 + t / self.sample_number)
         elif ind_parity == 'cube':
             self.individual_parity_func = lambda t: (t / self.sample_number) ** 3
+        elif ind_parity == 'test':
+            self.individual_parity_func = lambda t: 0 if t < self.sample_number / 5 else 0.5
+ 
+        elif ind_parity == 'test2':
+            self.individual_parity_func = lambda t: 0 if t < self.sample_number / 5 else 0.8
  
         self.cnt = 0
     

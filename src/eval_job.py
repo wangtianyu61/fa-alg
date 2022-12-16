@@ -20,7 +20,7 @@ VW = 'vw'
 def run_jobs():
     model_classes = ['cftl', 'falcon', 'bag', 'regcbopt', 'eps-greedy', 'cover', 'supervised']
 
-    dataset = GERMAN
+    dataset = CANDC
     n_actions = 2
     csv_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.csv'
     vw_path = 'src/datasets/' + dataset + '/' + dataset + '_' + str(n_actions) + '.vw.gz'
